@@ -25,16 +25,16 @@ def clean_matched_results(matches):
     # return unique results
     return list(set(endpoints))
 
-def extract_double_quoted_apis(text):
+def extract_double_quoted_apis(text, prefix):
 
-    regex = r'"(?<=(\"|\'|\`))\/api\/[a-zA-Z0-9_?&=\/\-\#\.]*(?=(\"|\'|\`))"'
+    regex = r'"(?<=(\"|\'|\`))' + prefix + r'\/[a-zA-Z0-9_?&=\/\-\#\.]*(?=(\"|\'|\`))"'
     matches = re.finditer(regex, text, re.MULTILINE)
 
     return clean_matched_results(matches)
 
-def extract_single_quoted_apis(text):
+def extract_single_quoted_apis(text, prefix):
 
-    regex = r"'(?<=(\"|\'|\`))\/api\/[a-zA-Z0-9_?&=\/\-\#\.]*(?=(\"|\'|\`))'"
+    regex = r"'(?<=(\"|\'|\`))" + prefix + r"\/[a-zA-Z0-9_?&=\/\-\#\.]*(?=(\"|\'|\`))'"
     matches = re.finditer(regex, text, re.MULTILINE)
 
     return clean_matched_results(matches)
@@ -57,29 +57,58 @@ def build_get_urls(url, endpoints):
     return get_endpoints
 
 
-def scan(url, threads, output):
+def make_get_request(url):
+    try:
+        url = url.rstrip("/")
+        response = requests.get(url, timeout=5, allow_redirects=False, verify=False)
+        length = len(response.content)
+        
+        result = {
+            "status_code": response.status_code,
+            "length": length,
+            "url": url
+        }
+
+        return result
+    except Exception as e:
+        print(e)
+
+
+def check_url(urls, num_threads = 20):
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        future_to_url = {executor.submit(make_get_request, url): url for url in urls}
+        for future in tqdm(concurrent.futures.as_completed(future_to_url), total=len(urls), unit=" urls"):
+            sub_ns_sc = future_to_url[future]
+            try:
+                if future.result() is not None:
+                    results.append(future.result())
+            except Exception as e:
+                print(f"{e}")
+                raise
+    return results
+
+
+def scan(url, default_prefix, threads, output):
     
     response = requests.get(url, timeout=5, allow_redirects=False, verify=False)
     text = response.text
 
     endpoints = []
 
-    endpoints.extend(extract_single_quoted_apis(text))
-    endpoints.extend(extract_double_quoted_apis(text))
+    endpoints.extend(extract_single_quoted_apis(text, default_prefix))
+    endpoints.extend(extract_double_quoted_apis(text, default_prefix))
 
     get_endpoints = build_get_urls(url, endpoints)
 
-    for e in get_endpoints:
-        response = requests.get(e, timeout=5, verify=False)
-        length = len(response.content)
-       
-        result = {
-            "status_code": response.status_code,
-            "length": length,
-            "url": e
-        }
+    results = check_url(get_endpoints, threads)
 
-        print(f"[*] {response.status_code} : {length} : {e}")
+    for result in results:
+        status_code = result["status_code"]
+        length = result["length"]
+        endpoint = result["url"]
+
+        print(f"[*] {status_code} : {length} : {endpoint}")
 
 def main():
     """
@@ -87,6 +116,7 @@ def main():
     """
     parser = ArgumentParser()
     parser.add_argument("-u", "--url", dest="url", help="url to target")
+    parser.add_argument("-p", "--prefix", dest="prefix", help="api prefix, default /api")
     parser.add_argument("-o", "--out", dest="output", help="file to output json")
     parser.add_argument("-t", "--threads", dest="threads", help="number of threads")
     
@@ -100,7 +130,11 @@ def main():
     if args.threads:
         thread_default = int(args.threads)
 
-    scan(args.url, thread_default, args.output)
+    default_prefix = r"\/api"
+    if args.prefix:
+        default_prefix = r"\/" + args.prefix.lstrip("/").rstrip("/")
+
+    scan(args.url, default_prefix, thread_default, args.output)
 
 
 if __name__ == "__main__":
