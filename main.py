@@ -53,6 +53,7 @@ def clean_matched_results(matches):
 
     # return unique results
     return list(set(endpoints))
+    
 
 def extract_quoted_apis(text, prefix):
 
@@ -114,6 +115,31 @@ def check_url(urls, num_threads = 20):
     return results
 
 
+def content_request(url):
+    try:
+        url = url.rstrip("/")
+        response = requests.get(url, timeout=5, allow_redirects=False, verify=False)
+        
+        return response.text
+    except Exception as e:
+        print(e)
+
+
+def collect_url(urls, num_threads = 20):
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        future_to_url = {executor.submit(content_request, url): url for url in urls}
+        for future in tqdm(concurrent.futures.as_completed(future_to_url), total=len(urls), unit=" urls"):
+            sub_ns_sc = future_to_url[future]
+            try:
+                if future.result() is not None:
+                    results.append(future.result())
+            except Exception as e:
+                print(f"{e}")
+                raise
+    return results
+
+
 def scan(url, default_prefix, threads, output):
     
     response = requests.get(url, timeout=15, allow_redirects=False, verify=False)
@@ -125,10 +151,9 @@ def scan(url, default_prefix, threads, output):
 
     js_links = external_js_extract(url)
 
-    for link in js_links:
-        response = requests.get(link, timeout=15, allow_redirects=False, verify=False)
-        text = response.text
-        endpoints.extend(extract_quoted_apis(text, default_prefix))
+    contents = collect_url(js_links, threads)
+    for content in contents:
+        endpoints.extend(extract_quoted_apis(content, default_prefix))
 
     get_endpoints = build_get_urls(url, endpoints)
 
