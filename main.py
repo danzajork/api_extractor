@@ -51,7 +51,10 @@ def build_get_urls(url, endpoints):
     full_domain = f"{extracted_result.subdomain}.{extracted_result.domain}.{extracted_result.suffix}"
 
     for endpoint in endpoints:
-        api_endpoint = f"{scheme}{full_domain}{endpoint}"
+        if endpoint.startswith("/"):
+            api_endpoint = f"{scheme}{full_domain}{endpoint}"
+        else:
+            api_endpoint = f"{scheme}{full_domain}/{endpoint}"
         get_endpoints.append(api_endpoint)
 
     return get_endpoints
@@ -126,13 +129,16 @@ def main():
         parser.print_help()
         exit(1)
 
-    thread_default = 40 
+    thread_default = 10 
     if args.threads:
         thread_default = int(args.threads)
 
     default_prefix = r"\/api"
     if args.prefix:
-        default_prefix = r"\/" + args.prefix.lstrip("/").rstrip("/")
+        if args.prefix.startswith("/"):
+            default_prefix = r"\/" + args.prefix.lstrip("/").rstrip("/")
+        else:
+            default_prefix = args.prefix
 
     scan(args.url, default_prefix, thread_default, args.output)
 
