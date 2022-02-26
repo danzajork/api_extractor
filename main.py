@@ -161,7 +161,7 @@ def main():
     if args.threads:
         thread_default = int(args.threads)
 
-    default_prefix = r"\/api"
+    default_prefix = r"(\/api|api)"
     if args.prefix:
         if args.prefix.startswith("/"):
             default_prefix = r"\/" + args.prefix.lstrip("/").rstrip("/")
