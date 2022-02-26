@@ -54,16 +54,9 @@ def clean_matched_results(matches):
     # return unique results
     return list(set(endpoints))
 
-def extract_double_quoted_apis(text, prefix):
+def extract_quoted_apis(text, prefix):
 
-    regex = r'"(?<=(\"|\'|\`))' + prefix + r'\/[a-zA-Z0-9_?&=\/\-\#\.]*(?=(\"|\'|\`))"'
-    matches = re.finditer(regex, text, re.MULTILINE)
-
-    return clean_matched_results(matches)
-
-def extract_single_quoted_apis(text, prefix):
-
-    regex = r"'(?<=(\"|\'|\`))" + prefix + r"\/[a-zA-Z0-9_?&=\/\-\#\.]*(?=(\"|\'|\`))'"
+    regex = r"(?<=(\"|\'|\`))" + prefix + r"\/[a-zA-Z0-9_?&=\/\-\#\.]*(?=(\"|\'|\`))"
     matches = re.finditer(regex, text, re.MULTILINE)
 
     return clean_matched_results(matches)
@@ -128,16 +121,14 @@ def scan(url, default_prefix, threads, output):
 
     endpoints = []
 
-    endpoints.extend(extract_single_quoted_apis(text, default_prefix))
-    endpoints.extend(extract_double_quoted_apis(text, default_prefix))
+    endpoints.extend(extract_quoted_apis(text, default_prefix))
 
     js_links = external_js_extract(url)
 
     for link in js_links:
         response = requests.get(link, timeout=15, allow_redirects=False, verify=False)
         text = response.text
-        endpoints.extend(extract_single_quoted_apis(text, default_prefix))
-        endpoints.extend(extract_double_quoted_apis(text, default_prefix))
+        endpoints.extend(extract_quoted_apis(text, default_prefix))
 
     get_endpoints = build_get_urls(url, endpoints)
 
