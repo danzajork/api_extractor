@@ -1,3 +1,4 @@
 requests
 tldextract
 tqdm
+beautifulsoup4

@@ -1,15 +1,44 @@
 #!/usr/bin/python3
 import json
 import sys
+from urllib.parse import urljoin
 import requests
 import tldextract
 from tqdm import tqdm
 import concurrent.futures
 from argparse import ArgumentParser
 import re
+from bs4 import BeautifulSoup
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+def external_js_extract(url):
+    js_links = []
+
+    scheme = "http://"
+    if url.startswith("https://"):
+        scheme = "https://"
+
+    extracted_result = tldextract.extract(url)
+    if extracted_result.subdomain:
+        full_domain = f"{extracted_result.subdomain}.{extracted_result.domain}.{extracted_result.suffix}"
+    else:
+        full_domain = f"{extracted_result.domain}.{extracted_result.suffix}"
+   
+    request = requests.get(f"{scheme}{full_domain}", verify=False, timeout=15, allow_redirects=False)
+
+    html = request.text
+    soup = BeautifulSoup(html, features='html.parser')
+
+    for link in soup.find_all('script'):
+        if link.get('src'):            
+            extracted_url = urljoin(f"{scheme}{full_domain}", link.get('src'))
+            js_links.append(extracted_url)
+
+    return js_links
+
 
 def clean_matched_results(matches):
     endpoints = []
@@ -48,13 +77,13 @@ def build_get_urls(url, endpoints):
         scheme = "https://"
 
     extracted_result = tldextract.extract(url)
-    full_domain = f"{extracted_result.subdomain}.{extracted_result.domain}.{extracted_result.suffix}"
+    if extracted_result.subdomain:
+        full_domain = f"{extracted_result.subdomain}.{extracted_result.domain}.{extracted_result.suffix}"
+    else:
+        full_domain = f"{extracted_result.domain}.{extracted_result.suffix}"
 
     for endpoint in endpoints:
-        if endpoint.startswith("/"):
-            api_endpoint = f"{scheme}{full_domain}{endpoint}"
-        else:
-            api_endpoint = f"{scheme}{full_domain}/{endpoint}"
+        api_endpoint =  urljoin(f"{scheme}{full_domain}", endpoint)
         get_endpoints.append(api_endpoint)
 
     return get_endpoints
@@ -94,13 +123,21 @@ def check_url(urls, num_threads = 20):
 
 def scan(url, default_prefix, threads, output):
     
-    response = requests.get(url, timeout=5, allow_redirects=False, verify=False)
+    response = requests.get(url, timeout=15, allow_redirects=False, verify=False)
     text = response.text
 
     endpoints = []
 
     endpoints.extend(extract_single_quoted_apis(text, default_prefix))
     endpoints.extend(extract_double_quoted_apis(text, default_prefix))
+
+    js_links = external_js_extract(url)
+
+    for link in js_links:
+        response = requests.get(link, timeout=15, allow_redirects=False, verify=False)
+        text = response.text
+        endpoints.extend(extract_single_quoted_apis(text, default_prefix))
+        endpoints.extend(extract_double_quoted_apis(text, default_prefix))
 
     get_endpoints = build_get_urls(url, endpoints)
 
