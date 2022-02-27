@@ -65,7 +65,7 @@ def extract_quoted_apis(text, prefix):
     return clean_matched_results(matches)
 
 
-def build_get_urls(url, endpoints):
+def build_get_urls(url, endpoints, api_prefix):
 
     get_endpoints = []
 
@@ -80,8 +80,16 @@ def build_get_urls(url, endpoints):
         full_domain = f"{extracted_result.domain}.{extracted_result.suffix}"
 
     for endpoint in endpoints:
-        api_endpoint = urljoin(f"{scheme}{full_domain}", endpoint)
-        get_endpoints.append(api_endpoint)
+        if api_prefix:
+            if not api_prefix.startswith("/"):
+                api_prefix = "/" + api_prefix
+
+            api_prefix = api_prefix.rstrip("/")
+
+            get_endpoints.append(f"{scheme}{full_domain}{api_prefix}{endpoint}")
+
+        else:
+            get_endpoints.append(urljoin(f"{scheme}{full_domain}", endpoint))
 
     return get_endpoints
 
@@ -147,7 +155,7 @@ def collect_url(urls, num_threads=20):
     return results
 
 
-def scan(url, default_prefix, threads, output):
+def scan(url, default_search_prefix, api_prefix, threads, output):
 
     response = requests.get(
         url, timeout=15, allow_redirects=False, verify=False)
@@ -155,18 +163,18 @@ def scan(url, default_prefix, threads, output):
 
     endpoints = []
 
-    endpoints.extend(extract_quoted_apis(text, default_prefix))
+    endpoints.extend(extract_quoted_apis(text, default_search_prefix))
 
     js_links = external_js_extract(url)
 
     contents = collect_url(js_links, threads)
     for content in contents:
-        endpoints.extend(extract_quoted_apis(content, default_prefix))
+        endpoints.extend(extract_quoted_apis(content, default_search_prefix))
 
     # get unique results
     endpoints = list(set(endpoints))
 
-    get_endpoints = build_get_urls(url, endpoints)
+    get_endpoints = build_get_urls(url, endpoints, api_prefix)
 
     results = check_url(get_endpoints, threads)
 
@@ -184,8 +192,10 @@ def main():
     """
     parser = ArgumentParser()
     parser.add_argument("-u", "--url", dest="url", help="url to target")
+    parser.add_argument("-s", "--search-prefix", dest="search_prefix",
+                        help="api search prefix, default /api and api")
     parser.add_argument("-p", "--prefix", dest="prefix",
-                        help="api prefix, default /api")
+                        help="path prefix to append to API calls")
     parser.add_argument("-o", "--out", dest="output",
                         help="file to output json")
     parser.add_argument("-t", "--threads", dest="threads",
@@ -201,14 +211,14 @@ def main():
     if args.threads:
         thread_default = int(args.threads)
 
-    default_prefix = r"(\/api|api)"
-    if args.prefix:
-        if args.prefix.startswith("/"):
-            default_prefix = r"\/" + args.prefix.lstrip("/").rstrip("/")
+    default_search_prefix = r"(\/api|api)"
+    if args.search_prefix:
+        if args.search_prefix.startswith("/"):
+            default_search_prefix = r"\/" + args.prefix.lstrip("/").rstrip("/")
         else:
-            default_prefix = args.prefix
+            default_search_prefix = args.prefix
 
-    scan(args.url, default_prefix, thread_default, args.output)
+    scan(args.url, default_search_prefix, args.prefix, thread_default, args.output)
 
 
 if __name__ == "__main__":
