@@ -201,9 +201,9 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("-u", "--url", dest="url", help="url to target")
     parser.add_argument("-s", "--search-prefix", dest="search_prefix",
-                        help="api search prefix, default /api and api")
+                        help="api search prefix, default /api, api, /rest, rest, /service, and service")
     parser.add_argument("-p", "--prefix", dest="prefix",
-                        help="path prefix to append to API calls")
+                        help="path prefix to prepend to API calls")
     parser.add_argument("-o", "--out", dest="output",
                         help="file to output json")
     parser.add_argument("-t", "--threads", dest="threads",
