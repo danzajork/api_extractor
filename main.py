@@ -32,11 +32,19 @@ def external_js_extract(url):
                            verify=False, timeout=15, allow_redirects=False)
 
     html = request.text
-    soup = BeautifulSoup(html, features='html.parser')
+    soup = BeautifulSoup(html, features="html.parser")
 
-    for link in soup.find_all('script'):
-        if link.get('src'):
-            extracted_url = urljoin(f"{scheme}{full_domain}", link.get('src'))
+    has_base_href = False
+    for href in soup.find_all("base",href=True):
+        has_base_href = True
+        full_domain = urljoin(url, href.get("href"))
+
+    for link in soup.find_all("script"):
+        if link.get("src"):
+            if has_base_href:
+                extracted_url = urljoin(full_domain, link.get("src"))
+            else:
+                extracted_url = urljoin(url, link.get("src"))
             js_links.append(extracted_url)
 
     return js_links
@@ -167,8 +175,6 @@ def scan(url, default_search_prefix, api_prefix, threads, output):
 
     js_links = external_js_extract(url)
 
-    print(js_links)
-
     contents = collect_url(js_links, threads)
     for content in contents:
         endpoints.extend(extract_quoted_apis(content, default_search_prefix))
@@ -213,12 +219,14 @@ def main():
     if args.threads:
         thread_default = int(args.threads)
 
-    default_search_prefix = r"(\/api|api|\/rest|rest)"
+    default_search_prefix = r"(\/api|api|\/rest|rest|\/service|service)"
     if args.search_prefix:
         if args.search_prefix.startswith("/"):
             default_search_prefix = r"\/" + args.search_prefix.lstrip("/").rstrip("/")
         else:
             default_search_prefix = args.search_prefix
+
+    print(f"[i] using API search prefix: {default_search_prefix}")
 
     scan(args.url, default_search_prefix, args.prefix, thread_default, args.output)
 
