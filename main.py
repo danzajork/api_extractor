@@ -58,6 +58,8 @@ def clean_matched_results(matches):
         endpoint = endpoint.rstrip('"')
         endpoint = endpoint.lstrip("'")
         endpoint = endpoint.rstrip("'")
+        endpoint = endpoint.lstrip("`")
+        endpoint = endpoint.rstrip("`")
 
         endpoints.append(endpoint)
 
