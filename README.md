@@ -19,16 +19,19 @@ pip install -r requirements.txt
 ### Usage information
 
 ```console
-% python3 main.py 
-usage: main.py [-h] [-u URL] [-p PREFIX] [-o OUTPUT] [-t THREADS]
+% python3 main.py                                           
+usage: main.py [-h] [-u URL] [-s SEARCH_PREFIX] [-p PREFIX] [-o OUTPUT] [-t THREADS]
 
 optional arguments:
   -h, --help            show this help message and exit
   -u URL, --url URL     url to target
+  -s SEARCH_PREFIX, --search-prefix SEARCH_PREFIX
+                        api search prefix, default /api, api, /rest, rest, /service, and service
   -p PREFIX, --prefix PREFIX
-                        api prefix, default /api
+                        path prefix to append to API calls
   -o OUTPUT, --out OUTPUT
                         file to output json
   -t THREADS, --threads THREADS
                         number of threads
+
 ```
