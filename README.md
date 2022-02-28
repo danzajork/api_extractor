@@ -28,7 +28,7 @@ optional arguments:
   -s SEARCH_PREFIX, --search-prefix SEARCH_PREFIX
                         api search prefix, default /api, api, /rest, rest, /service, and service
   -p PREFIX, --prefix PREFIX
-                        path prefix to append to API calls
+                        path prefix to prepend to API calls
   -o OUTPUT, --out OUTPUT
                         file to output json
   -t THREADS, --threads THREADS
