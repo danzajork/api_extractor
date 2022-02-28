@@ -28,7 +28,7 @@ def external_js_extract(url):
     else:
         full_domain = f"{extracted_result.domain}.{extracted_result.suffix}"
 
-    request = requests.get(f"{scheme}{full_domain}",
+    request = requests.get(url,
                            verify=False, timeout=15, allow_redirects=False)
 
     html = request.text
@@ -166,6 +166,8 @@ def scan(url, default_search_prefix, api_prefix, threads, output):
     endpoints.extend(extract_quoted_apis(text, default_search_prefix))
 
     js_links = external_js_extract(url)
+
+    print(js_links)
 
     contents = collect_url(js_links, threads)
     for content in contents:
