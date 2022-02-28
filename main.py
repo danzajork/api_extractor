@@ -211,12 +211,12 @@ def main():
     if args.threads:
         thread_default = int(args.threads)
 
-    default_search_prefix = r"(\/api|api)"
+    default_search_prefix = r"(\/api|api|\/rest|rest)"
     if args.search_prefix:
         if args.search_prefix.startswith("/"):
-            default_search_prefix = r"\/" + args.prefix.lstrip("/").rstrip("/")
+            default_search_prefix = r"\/" + args.search_prefix.lstrip("/").rstrip("/")
         else:
-            default_search_prefix = args.prefix
+            default_search_prefix = args.search_prefix
 
     scan(args.url, default_search_prefix, args.prefix, thread_default, args.output)
 
