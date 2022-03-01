@@ -15,6 +15,15 @@ from tqdm import tqdm
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+def get_domain_from_url(url):
+    extracted_result = tldextract.extract(url)
+    if extracted_result.subdomain:
+        full_domain = f"{extracted_result.subdomain}.{extracted_result.domain}.{extracted_result.suffix}"
+    else:
+        full_domain = f"{extracted_result.domain}.{extracted_result.suffix}"
+
+    return full_domain
+
 def external_js_extract(url):
     js_links = []
 
@@ -24,9 +33,9 @@ def external_js_extract(url):
 
     extracted_result = tldextract.extract(url)
     if extracted_result.subdomain:
-        full_domain = f"{extracted_result.subdomain}.{extracted_result.domain}.{extracted_result.suffix}"
+        base_url = f"{scheme}{extracted_result.subdomain}.{extracted_result.domain}.{extracted_result.suffix}"
     else:
-        full_domain = f"{extracted_result.domain}.{extracted_result.suffix}"
+        base_url = f"{scheme}{extracted_result.domain}.{extracted_result.suffix}"
 
     request = requests.get(url,
                            verify=False, timeout=15, allow_redirects=False)
@@ -37,12 +46,12 @@ def external_js_extract(url):
     has_base_href = False
     for href in soup.find_all("base",href=True):
         has_base_href = True
-        full_domain = urljoin(url, href.get("href"))
+        base_url = urljoin(url, href.get("href"))
 
     for link in soup.find_all("script"):
         if link.get("src"):
             if has_base_href:
-                extracted_url = urljoin(full_domain, link.get("src"))
+                extracted_url = urljoin(base_url, link.get("src"))
             else:
                 extracted_url = urljoin(url, link.get("src"))
             js_links.append(extracted_url)
@@ -83,11 +92,7 @@ def build_get_urls(url, endpoints, api_prefix):
     if url.startswith("https://"):
         scheme = "https://"
 
-    extracted_result = tldextract.extract(url)
-    if extracted_result.subdomain:
-        full_domain = f"{extracted_result.subdomain}.{extracted_result.domain}.{extracted_result.suffix}"
-    else:
-        full_domain = f"{extracted_result.domain}.{extracted_result.suffix}"
+    full_domain = get_domain_from_url(url)
 
     for endpoint in endpoints:
         if api_prefix:
@@ -165,10 +170,29 @@ def collect_url(urls, num_threads=20):
     return results
 
 
+def match_domain(url, requested_url):
+
+    full_domain = get_domain_from_url(url)
+    requested_full_domain = get_domain_from_url(requested_url)
+
+    if full_domain in requested_full_domain:
+        return True
+
+    return False
+
+
 def scan(url, default_search_prefix, api_prefix, threads, output):
 
-    response = requests.get(
-        url, timeout=15, allow_redirects=False, verify=False)
+    response = requests.get(url, timeout=15, verify=False)
+
+    # only follow redirects to same domain
+    if match_domain(url, response.url) == False:
+        print("[!] redirected off domain, scan stopped.")
+        return
+    else:
+        print(f"[i] new base URL: {response.url}")
+        url = response.url
+    
     text = response.text
 
     endpoints = []
