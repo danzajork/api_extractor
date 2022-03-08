@@ -99,7 +99,8 @@ def build_get_urls(url, endpoints, api_prefix):
             if not api_prefix.startswith("/"):
                 api_prefix = "/" + api_prefix
 
-            api_prefix = api_prefix.rstrip("/")
+            if endpoint.startswith("/"):
+                api_prefix = api_prefix.rstrip("/")
 
             get_endpoints.append(f"{scheme}{full_domain}{api_prefix}{endpoint}")
 
@@ -181,7 +182,7 @@ def match_domain(url, requested_url):
     return False
 
 
-def scan(url, default_search_prefix, api_prefix, threads, output):
+def scan(url, default_search_prefix, base_url, api_prefix, threads, output):
 
     response = requests.get(url, timeout=15, verify=False)
 
@@ -208,7 +209,10 @@ def scan(url, default_search_prefix, api_prefix, threads, output):
     # get unique results
     endpoints = list(set(endpoints))
 
-    get_endpoints = build_get_urls(url, endpoints, api_prefix)
+    if base_url:
+        get_endpoints = build_get_urls(base_url, endpoints, api_prefix)
+    else:
+        get_endpoints = build_get_urls(url, endpoints, api_prefix)
 
     results = check_url(get_endpoints, threads)
 
@@ -230,6 +234,8 @@ def main():
                         help="api search prefix, default /api, api, /rest, rest, /service, and service")
     parser.add_argument("-p", "--prefix", dest="prefix",
                         help="path prefix to prepend to API calls")
+    parser.add_argument("-b", "--base", dest="base",
+                        help="base URL for API calls")
     parser.add_argument("-o", "--out", dest="output",
                         help="file to output json")
     parser.add_argument("-t", "--threads", dest="threads",
@@ -254,7 +260,7 @@ def main():
 
     print(f"[i] using API search prefix: {default_search_prefix}")
 
-    scan(args.url, default_search_prefix, args.prefix, thread_default, args.output)
+    scan(args.url, default_search_prefix, args.base, args.prefix, thread_default, args.output)
 
 
 if __name__ == "__main__":
